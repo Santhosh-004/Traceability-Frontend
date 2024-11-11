@@ -3,8 +3,9 @@
 import Navbar from "@/components/navbar";
 import { supabase } from "@/utils/supabaseClient";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Scanner } from "@yudiel/react-qr-scanner";
+import QRCode from "react-qr-code";
 
 export default function Dashboard() {
    const router = useRouter();
@@ -20,6 +21,7 @@ export default function Dashboard() {
    const [loading, setLoading] = useState(false);
    const [done, setDone] = useState(false);
    const [productCode, setProductCode] = useState("");
+   const qrCodeContainerRef = useRef(null);
 
    useEffect(() => {
       const fetchUserData = async () => {
@@ -122,8 +124,6 @@ export default function Dashboard() {
 
    const handleScan = async (result) => {
       if (result) {
-         // Here you would send the scanned code to your backend
-         console.log("Scanned code:", result[0].rawValue);
          setScannedCode(result[0].rawValue);
          const url = "http://localhost:5000/api/update";
          const data = {
@@ -140,12 +140,35 @@ export default function Dashboard() {
             body: JSON.stringify(data),
          });
          const final = await response.json();
-         console.log("Result:", final);
-
          setLoading(false);
          setDone(true);
+      }
+   };
 
-         console.log("done");
+   const copyToClipboard = () => {
+      if (qrCodeContainerRef.current) {
+         const container = qrCodeContainerRef.current;
+         const svg = container.querySelector("svg");
+         const canvas = document.createElement("canvas");
+         const ctx = canvas.getContext("2d");
+         const svgData = new XMLSerializer().serializeToString(svg);
+         const img = new Image();
+
+         img.onload = () => {
+            canvas.width = img.width + 20;
+            canvas.height = img.height + 20;
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(img, 10, 10);
+            canvas.toBlob((blob) => {
+               navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(() => {
+                  alert("QR code image copied to clipboard!");
+               });
+            });
+         };
+         img.src = "data:image/svg+xml;base64," + btoa(svgData);
+      } else {
+         console.error("QR code reference is null");
       }
    };
 
@@ -166,6 +189,16 @@ export default function Dashboard() {
                   <p className="text-lg font-semibold text-center break-words text-green-700">
                      Product Code: {productCode}
                   </p>
+                  <div className="flex justify-center mt-2" ref={qrCodeContainerRef}>
+                     <div style={{ padding: '10px', backgroundColor: 'white', borderRadius: '8px' }}>
+                        <QRCode value={productCode}/>
+                     </div>
+                  </div>
+                  <div className="flex justify-center mt-2">
+                     <button onClick={copyToClipboard} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                        Copy to clipboard
+                     </button>
+                  </div>
                </div>
             )}
 
